@@ -1,0 +1,30 @@
+# Router data tracker config. Everything router-specific lives here.
+[router]
+host = "192.168.88.1"      # router LAN IP
+community = "public"       # SNMP v2c community
+network = "Telecel"       # network of the SIM normally in the router (default for the router SIM)
+interface = "lte1"         # metered WAN interface name as the router reports it (ifDescr)
+poll_seconds = 60
+
+[flow]
+port = 2055                # NetFlow v5 collector (UDP)
+lan = "192.168.88.0/24"    # your LAN subnet, used to tell devices from internet hosts
+
+[laptop]
+# SIM in the laptop: interface auto-detected (ww*). Set it only if detection fails.
+# interface = "wwan0"
+
+[web]
+port = 8181
+
+[names]
+# Optional friendly names, by MAC or IP:
+# "aa:bb:cc:dd:ee:ff" = "Kofi's phone"
+
+[control]
+# Optional: block/unblock devices and per-device data limits (needs MikroTik RouterOS 7, see README).
+# Leave password empty to keep these features off. A password also protects the bundle form.
+password = ""
+router_user = ""
+router_password = ""
+router_url = "http://192.168.88.1"

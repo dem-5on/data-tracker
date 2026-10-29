@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data left</title>
+<style>
+:root{--bg:#f3f5f2;--ink:#1c2420;--mute:#66726b;--line:#d9dfda;--card:#fff;--ok:#1f7a5a;--warn:#c2761c;--bad:#b8402e}
+@media (prefers-color-scheme:dark){:root{--bg:#141a17;--ink:#e6ece8;--mute:#8d9a92;--line:#27322c;--card:#1b231f;--ok:#4cc79a;--warn:#e0a24a;--bad:#e8705c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+main{max-width:720px;margin:0 auto;padding:28px 18px 60px}
+.left{font-size:clamp(56px,16vw,104px);font-weight:700;letter-spacing:-.03em;line-height:1}
+.left small{font-size:.28em;font-weight:500;color:var(--mute);letter-spacing:0;margin-left:.3em}
+.sub{color:var(--mute);margin:6px 0 20px}
+.meter{height:22px;background:var(--line);border-radius:4px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .6s}
+.stats{display:flex;gap:28px;margin:14px 0 34px;flex-wrap:wrap}
+.stats b{display:block;font-size:20px}.stats span{color:var(--mute);font-size:14px}
+h2{font-size:17px;margin:0 0 8px}
+.tools{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:0 0 10px}
+.tog{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mute)}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+th{font-weight:500;color:var(--mute);font-size:14px}
+tr:last-child td{border-bottom:0}
+td .ip{color:var(--mute);font-size:13px;display:block}
+.row-bar{height:3px;background:var(--ok);margin-top:6px;border-radius:2px}
+.st::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;background:var(--mute)}
+.st.on::before{background:var(--ok)}.st.off{color:var(--mute)}.st.blk{color:var(--bad)}.st.blk::before{background:var(--bad)}
+.act{display:flex;gap:14px;margin-top:4px}
+.lnk{font:inherit;font-size:13px;padding:0;border:0;background:none;color:var(--ok);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.muted{color:var(--mute)}
+.net{font-size:14px;color:var(--mute);margin:0 0 6px}
+.src{color:var(--mute);font-size:14px;margin:-22px 0 28px}
+.bd{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line);font-size:14px;color:var(--mute)}
+.bd.cur{color:var(--ink)}#bundles{margin:-18px 0 30px}
+select{font:inherit;font-size:14px;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink)}
+form{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:36px;padding-top:20px;border-top:1px solid var(--line)}
+label.f{display:flex;flex-direction:column;font-size:14px;color:var(--mute);gap:4px}
+input[type=number],input[type=date]{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink);width:150px}
+button.go{font:inherit;padding:9px 16px;border:0;border-radius:5px;background:var(--ink);color:var(--bg);cursor:pointer}
+:focus-visible{outline:2px solid var(--ok);outline-offset:2px}
+.err{color:var(--bad);margin:0 0 14px}
+</style>
+</head>
+<body>
+<main>
+  <p class="err" id="err" hidden>Router not reachable over SNMP. Check host, community and interface in config.toml.</p>
+  <p class="net" id="net"></p>
+  <div class="left" id="left">&ndash;<small>GB left</small></div>
+  <p class="sub" id="sub">Enter your bundle below to start tracking.</p>
+  <div class="meter"><i id="bar"></i></div>
+  <div class="stats">
+    <div><b id="used">&ndash;</b><span>used</span></div>
+    <div><b id="size">&ndash;</b><span>bundle</span></div>
+    <div><b id="days">&ndash;</b><span>days to expiry</span></div>
+  </div>
+  <p class="src" id="src" hidden></p>
+  <div id="bundles"></div>
+
+  <h2>Usage by device</h2>
+  <div class="tools">
+    <label class="tog"><input type="checkbox" id="all"> Include offline devices</label>
+    <label class="tog">SIM in router <select id="rnet"></select></label>
+    <button class="lnk" id="unlock" hidden>Unlock controls</button>
+    <button class="lnk" id="deflim" hidden></button>
+  </div>
+  <table>
+    <thead><tr><th>Device</th><th>Status</th><th>Down</th><th>Up</th><th>Total</th></tr></thead>
+    <tbody id="devs"><tr><td colspan="5" class="muted">No device traffic recorded yet.</td></tr></tbody>
+  </table>
+
+  <form id="f">
+    <label class="f">Network<input name="network" id="fnet" list="nets" required autocomplete="off" style="width:150px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink)"></label>
+    <datalist id="nets"></datalist>
+    <label class="f">Bundle size (GB)<input name="size" type="number" step="0.01" min="0.01" required></label>
+    <label class="f">Expires<input name="expiry" type="date" required></label>
+    <button class="go">Start new bundle</button>
+  </form>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=t=>t.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=b=>b>=1073741824?(b/1073741824).toFixed(2)+" GB":(b/1048576).toFixed(b>=1048576*100?0:1)+" MB";
+const gb=b=>(b/1073741824).toFixed(2);
+const J={"Content-Type":"application/json"};
+let S=null;
+
+async function unlock(){
+  const p=prompt("Dashboard password");if(!p)return false;
+  const r=await fetch("/api/login",{method:"POST",headers:J,body:JSON.stringify({password:p})});
+  if(!r.ok){alert("Wrong password");return false}
+  return true;
+}
+async function post(url,body){
+  const go=()=>fetch(url,{method:"POST",headers:J,body:JSON.stringify(body)});
+  let r=await go();
+  if(r.status===401){if(!await unlock())return false;r=await go()}
+  if(!r.ok){alert((await r.json().catch(()=>({}))).detail||"Request failed");return false}
+  return true;
+}
+
+function render(s){
+  $("err").hidden=!s.router_error;
+  const lap=s.sources.laptop;
+  $("net").textContent=s.net+" \u00b7 "+(lap.connected&&lap.net===s.net?"SIM in laptop":"SIM in router");
+  $("used").textContent=fmt(s.used);
+  const bs=s.by_src||{},parts=[];
+  if("router" in bs)parts.push("Router "+fmt(bs.router));
+  if("laptop" in bs)parts.push("Laptop "+fmt(bs.laptop));
+  $("src").hidden=!parts.length;$("src").textContent=parts.join("  \u00b7  ");
+  if(!s.configured){
+    $("left").innerHTML="\u2013<small>GB left</small>";$("size").textContent="\u2013";$("days").textContent="\u2013";
+    $("sub").textContent="No bundle set for "+s.net+". Add one below.";$("bar").style.width="0";
+  }else{
+    const pct=Math.min(s.used/s.size*100,100);
+    $("left").innerHTML=gb(s.remaining)+"<small>GB left</small>";
+    $("size").textContent=fmt(s.size);
+    $("days").textContent=s.days_left??"–";
+    $("sub").textContent=pct.toFixed(0)+"% of your bundle used"+(s.expiry?", expires "+s.expiry:"");
+    const bar=$("bar");bar.style.width=pct+"%";
+    bar.style.background=pct>90?"var(--bad)":pct>70?"var(--warn)":"var(--ok)";
+  }
+  $("bundles").innerHTML=s.bundles.length>1?s.bundles.map(b=>`<div class="bd ${b.active?"cur":""}"><span><b>${esc(b.net)}</b>${b.active?" (in use)":""}</span><span>${gb(b.remaining)} GB left of ${fmt(b.size)}${b.expiry?", expires "+b.expiry:""}</span></div>`).join(""):"";
+  const nets=[...new Set(["MTN","Telecel","AirtelTigo",...s.bundles.map(b=>b.net),s.sources.router_net,...(lap.net?[lap.net]:[])])];
+  const sig=nets.join("|"),sel=$("rnet");
+  if(sel.dataset.sig!==sig){sel.innerHTML=nets.map(n=>`<option>${esc(n)}</option>`).join("");$("nets").innerHTML=sel.innerHTML;sel.dataset.sig=sig}
+  if(document.activeElement!==sel)sel.value=s.sources.router_net;
+  if(!$("fnet").value&&document.activeElement!==$("fnet"))$("fnet").value=s.net;
+  const c=s.control;
+  $("unlock").hidden=!(c.enabled&&!c.authed);
+  $("deflim").hidden=!(c.enabled&&c.authed);
+  $("deflim").textContent="Default limit per device: "+(c.default_limit_gb>0?c.default_limit_gb+" GB":"none");
+
+  const all=$("all").checked,list=s.devices.filter(d=>all||d.online||d.blocked);
+  const max=Math.max(1,...list.map(d=>d.down+d.up));
+  const stat=d=>d.blocked?["blk",d.auto?"Blocked (limit)":"Blocked"]:d.online?["on","Online"]:["off","Offline"];
+  const act=d=>{
+    if(!c.enabled||!d.mac||d.exempt)return "";
+    const lim=d.limit_gb===null?(c.default_limit_gb>0?"default "+c.default_limit_gb+" GB":"none"):(d.limit_gb>0?d.limit_gb+" GB":"none");
+    return `<div class="act"><button class="lnk" data-a="limit" data-m="${d.mac}">Limit: ${lim}</button><button class="lnk" data-a="${d.blocked?"unblock":"block"}" data-m="${d.mac}">${d.blocked?"Unblock":"Block"}</button></div>`;
+  };
+  const rows=list.map(d=>{const [k,t]=stat(d);
+    return `<tr><td>${esc(d.name)}${d.name!==d.ip?`<span class="ip">${d.ip}</span>`:""}${act(d)}<div class="row-bar" style="width:${(d.down+d.up)/max*100}%"></div></td><td class="st ${k}">${t}</td><td>${fmt(d.down)}</td><td>${fmt(d.up)}</td><td><b>${fmt(d.down+d.up)}</b></td></tr>`});
+  if(all&&s.devices.length&&s.unattributed>0)rows.push(`<tr class="muted"><td>Unattributed</td><td></td><td></td><td></td><td>${fmt(s.unattributed)}</td></tr>`);
+  $("devs").innerHTML=rows.length?rows.join(""):'<tr><td colspan="5" class="muted">No devices online right now.</td></tr>';
+}
+async function load(){try{S=await (await fetch("/api/status")).json();render(S)}catch(e){}}
+
+$("devs").onclick=async e=>{
+  const b=e.target.closest("button[data-a]");if(!b)return;
+  const mac=b.dataset.m,a=b.dataset.a;
+  if(a==="limit"){
+    const v=prompt("Data limit for this device over the whole bundle, in GB (0 = no limit):");if(v===null)return;
+    const n=parseFloat(v);if(isNaN(n)||n<0){alert("Enter a number, 0 or higher");return}
+    if(await post("/api/device",{mac,action:"limit",limit_gb:n}))load();
+  }else if(await post("/api/device",{mac,action:a}))load();
+};
+$("unlock").onclick=async()=>{if(await unlock())load()};
+$("deflim").onclick=async()=>{
+  const v=prompt("Default limit for every device without its own limit, in GB (0 = none):");if(v===null)return;
+  const n=parseFloat(v);if(isNaN(n)||n<0){alert("Enter a number, 0 or higher");return}
+  if(await post("/api/default-limit",{limit_gb:n}))load();
+};
+$("all").onchange=()=>S&&render(S);
+$("rnet").onchange=async e=>{if(await post("/api/router-net",{network:e.target.value}))load()};
+$("f").onsubmit=async e=>{
+  e.preventDefault();const f=new FormData(e.target);
+  if(await post("/api/bundle",{network:f.get("network"),size_gb:+f.get("size"),expiry:f.get("expiry")})){e.target.reset();load()}
+};
+load();setInterval(load,10000);
+</script>
+</body>
+</html>

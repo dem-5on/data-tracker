@@ -1,0 +1,7 @@
+{
+  "uuid": "datatracker@local",
+  "name": "Data Tracker",
+  "description": "Shows remaining mobile data and per-device usage from the local router data tracker.",
+  "shell-version": ["45", "46", "47", "48", "49", "50", "50.4"],
+  "version": 1
+}
