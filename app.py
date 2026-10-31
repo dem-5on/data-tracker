@@ -483,8 +483,8 @@ def status(request: Request):
     b = bundle_info(net)
     macs = arp() | {ip: m for ip, (m, _) in LEASES.items()}
     rules = {m: (l, bl, au) for m, l, bl, au in db.execute("SELECT mac, limit_gb, blocked, auto FROM rules")}
-    rows = db.execute("SELECT ip, SUM(down), SUM(up) FROM dev WHERE net=? AND hour>=? GROUP BY ip "
-                      "ORDER BY SUM(down)+SUM(up) DESC", (net, int(b["start"]) // 3600)).fetchall()
+    rows = db.execute("SELECT ip, SUM(down), SUM(up) FROM dev WHERE net=? GROUP BY ip "
+                      "ORDER BY SUM(down)+SUM(up) DESC", (net,)).fetchall()
     devices, router_sum = [], 0
     for ip, d, u in rows:
         if ip == "laptop":  # the laptop itself, using its own SIM
