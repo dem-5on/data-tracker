@@ -197,6 +197,7 @@ assert REC.size == 48
 buf = {}  # (hour, net, ip) -> [down, up]
 seen = {}  # ip -> last time traffic was seen (in memory)
 online = {}  # ip -> answered the last ping
+FLOW_LAST_RECEIVED = 0  # unix timestamp of last NetFlow v5 datagram received
 
 
 class Flow(asyncio.DatagramProtocol):
@@ -216,13 +217,18 @@ class Flow(asyncio.DatagramProtocol):
                 continue
             buf.setdefault((hour, RNET, ip), [0, 0])[k] += octs
             seen[ip] = time.time()
+            global FLOW_LAST_RECEIVED
+            FLOW_LAST_RECEIVED = time.time()
 
 
 async def flush():
+    global FLOW_LAST_RECEIVED
     while True:
         await asyncio.sleep(30)
         items = list(buf.items())
         buf.clear()
+        if items:
+            FLOW_LAST_RECEIVED = time.time()
         for (h, net, ip), (dn, up) in items:
             db.execute("INSERT INTO dev VALUES(?,?,?,?,?) ON CONFLICT(hour,net,ip) "
                        "DO UPDATE SET down=down+?, up=up+?", (h, net, ip, dn, up, dn, up))
@@ -500,10 +506,13 @@ def status(request: Request):
                         "blocked": bool(bl), "auto": bool(au), "limit_gb": l, "exempt": exempt(ip)})
     devices.sort(key=lambda d: not d["online"])  # online first, then by usage
     unattributed = max(b["by_src"].get("router", 0) - router_sum, 0)
+    flows_stale = FLOW_LAST_RECEIVED == 0 or time.time() - FLOW_LAST_RECEIVED > 120
     return {
         **b, "devices": devices, "unattributed": unattributed,
         "snmp_ok": IFIDX is not None,
         "router_error": IFIDX is None and not LAPTOP["connected"],
+        "flows_last_received": FLOW_LAST_RECEIVED,
+        "flows_stale": flows_stale,
         "sources": {"router_net": RNET, "laptop": dict(LAPTOP)},
         "bundles": [{**bundle_info(n), "active": n == net} for (n,) in db.execute("SELECT net FROM bundles ORDER BY net")],
         "control": {"enabled": CTL, "authed": authed(request), "password_set": bool(PW),
